@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Mystery of the Missing Holiday Notes</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .font-game {
+            font-family: 'Fredoka One', cursive;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        /* Modal Transitions */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 200ms ease-out, transform 200ms ease-out;
+        }
+        /* Pulse Animation for interactive glow */
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.8)); }
+            50% { filter: drop-shadow(0 0 16px rgba(250, 204, 21, 1)); }
+        }
+        .glow-effect {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col items-center justify-center p-2 md:p-4">
+
+    <!-- Top Navigation / Game HUD Header -->
+    <div class="w-full max-w-5xl bg-slate-800/90 border border-slate-700 rounded-xl p-3 mb-2 flex flex-wrap items-center justify-between gap-2 shadow-lg backdrop-blur-md">
+        <!-- Title & Level -->
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 font-game text-sm md:text-base">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span id="level-indicator">Stage 1: Courtyard</span>
+            </div>
+            <div class="text-xs md:text-sm font-semibold text-amber-400 flex items-center gap-1">
+                <i class="fa-solid fa-star"></i> Score: <span id="score-display">0</span>
+            </div>
+        </div>
+
+        <!-- Clues Progress & Energy -->
+        <div class="flex items-center gap-4 flex-1 justify-center max-w-md">
+            <!-- Hints Progress -->
+            <div class="w-1/2">
+                <div class="flex justify-between text-xs font-bold mb-1">
+                    <span class="text-emerald-400"><i class="fa-solid fa-scroll"></i> Essay Hints</span>
+                    <span id="hints-count">0/5</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden border border-slate-600">
+                    <div id="hints-bar" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Active Buff Indicators -->
+            <div class="flex items-center gap-2">
+                <div id="buff-speed" class="hidden bg-amber-500/20 border border-amber-500 text-amber-300 text-xs px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                    <i class="fa-solid fa-bolt"></i> <span id="speed-timer">10s</span>
+                </div>
+                <div id="buff-vision" class="hidden bg-cyan-500/20 border border-cyan-500 text-cyan-300 text-xs px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                    <i class="fa-solid fa-magnifying-glass"></i> <span id="vision-timer">15s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="flex items-center gap-2">
+            <button id="btn-audio" class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 text-sm" title="Toggle Mute">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+            <button id="btn-leaderboard" class="p-2 bg-slate-700 hover:bg-slate-600 text-amber-400 rounded-lg transition-colors border border-slate-600 text-sm" title="Leaderboards">
+                <i class="fa-solid fa-trophy"></i>
+            </button>
+            <button id="btn-pause" class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 text-sm" title="Pause Game">
+                <i class="fa-solid fa-pause"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Game Area Container -->
+    <div class="relative w-full max-w-5xl flex-1 max-h-[70vh] min-h-[400px] bg-slate-900 border-2 border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex">
+        
+        <!-- Canvas Context -->
+        <canvas id="gameCanvas" class="w-full h-full block bg-emerald-950 cursor-pointer"></canvas>
+
+        <!-- Mission & Objective Overlay Sidebar (Collapsible on Mobile) -->
+        <div id="mission-sidebar" class="absolute top-3 right-3 bg-slate-900/90 border border-slate-700 p-3 rounded-xl max-w-xs text-xs md:text-sm backdrop-blur-md shadow-xl transition-all">
+            <div class="font-game text-amber-400 flex items-center justify-between mb-2 pb-1 border-b border-slate-700">
+                <span><i class="fa-solid fa-compass"></i> Mission Log</span>
+                <span class="text-[10px] text-slate-400">Map: <span id="current-zone-name">Courtyard</span></span>
+            </div>
+            <p id="mission-text" class="text-slate-200 font-medium mb-2 leading-relaxed">Explore the courtyard and speak to Cikgu Rosli near the flag pole.</p>
+            
+            <!-- Collected Essay Hints Quick List -->
+            <div class="mt-2 pt-2 border-t border-slate-800">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Collected Clues:</div>
+                <div id="clue-tags-container" class="flex flex-wrap gap-1">
+                    <span class="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded border border-slate-700 italic">No clues collected yet</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- On-Screen Touch Controls D-Pad (For Mobile/Touch Devices) -->
+        <div class="absolute bottom-4 left-4 md:hidden flex flex-col items-center gap-1 bg-slate-900/60 p-2 rounded-full border border-slate-700/50 backdrop-blur-sm">
+            <button id="btn-up" class="w-10 h-10 bg-slate-700/80 active:bg-indigo-600 rounded-t-lg flex items-center justify-center text-white"><i class="fa-solid fa-chevron-up"></i></button>
+            <div class="flex gap-1">
+                <button id="btn-left" class="w-10 h-10 bg-slate-700/80 active:bg-indigo-600 rounded-l-lg flex items-center justify-center text-white"><i class="fa-solid fa-chevron-left"></i></button>
+                <button id="btn-down" class="w-10 h-10 bg-slate-700/80 active:bg-indigo-600 flex items-center justify-center text-white"><i class="fa-solid fa-chevron-down"></i></button>
+                <button id="btn-right" class="w-10 h-10 bg-slate-700/80 active:bg-indigo-600 rounded-r-lg flex items-center justify-center text-white"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        <!-- Interaction Key Indicator Floating Label -->
+        <div id="interaction-prompt" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-game px-4 py-2 rounded-full shadow-lg border-2 border-amber-300 animate-bounce text-xs md:text-sm flex items-center gap-2">
+            <i class="fa-solid fa-hand-pointer"></i> Press <span class="bg-slate-900 text-amber-400 px-2 py-0.5 rounded text-xs">SPACE / TAP</span> to Interact
+        </div>
+    </div>
+
+    <!-- Modals Container Overlay -->
+    
+    <!-- 1. Riddle Modal -->
+    <div id="modal-riddle" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-indigo-500 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative animate-enter">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <div id="riddle-npc-avatar" class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-xl text-white border-2 border-indigo-400">
+                        <i class="fa-solid fa-user-ninja"></i>
+                    </div>
+                    <div>
+                        <h3 id="riddle-title" class="font-game text-indigo-400 text-lg">Detective Riddle Challenge</h3>
+                        <p id="riddle-speaker" class="text-xs text-slate-400">NPC Speaker</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-riddle')" class="text-slate-400 hover:text-white p-1 text-lg">&times;</button>
+            </div>
+
+            <p id="riddle-question" class="text-slate-200 text-sm md:text-base font-medium mb-6 leading-relaxed bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
+                Question text goes here...
+            </p>
+
+            <div id="riddle-options" class="grid grid-cols-1 gap-2.5 mb-4">
+                <!-- Dynamically populated options buttons -->
+            </div>
+
+            <div id="riddle-feedback" class="hidden p-3 rounded-lg text-xs font-semibold text-center mb-2"></div>
+        </div>
+    </div>
+
+    <!-- 2. Essay Builder Stage Modal -->
+    <div id="modal-essay" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 max-w-3xl w-full shadow-2xl relative my-8">
+            <div class="text-center mb-6">
+                <h2 class="font-game text-2xl md:text-3xl text-emerald-400 mb-1"><i class="fa-solid fa-feather-pointed"></i> Master Essay Builder</h2>
+                <p class="text-xs md:text-sm text-slate-300">Arrange your collected clues to craft your essay: <strong class="text-amber-400">"My Unforgettable School Holiday"</strong></p>
+            </div>
+
+            <!-- Collected Hints Workbench -->
+            <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 mb-6">
+                <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3"><i class="fa-solid fa-puzzle-piece"></i> Slot Clues into correct Paragraph Places:</h4>
+                
+                <div class="space-y-4 text-xs md:text-sm text-slate-200">
+                    <!-- Paragraph Slot 1 -->
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span><strong>1. Introduction (Destination):</strong> During the recent school holidays, my family and I went to...</span>
+                        <select id="slot-1" class="bg-slate-800 text-emerald-300 font-semibold border border-slate-600 rounded p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- Choose collected clue --</option>
+                        </select>
+                    </div>
+
+                    <!-- Paragraph Slot 2 -->
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span><strong>2. Activity:</strong> While we were there, my favorite activity was...</span>
+                        <select id="slot-2" class="bg-slate-800 text-emerald-300 font-semibold border border-slate-600 rounded p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- Choose collected clue --</option>
+                        </select>
+                    </div>
+
+                    <!-- Paragraph Slot 3 -->
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span><strong>3. Delicious Food:</strong> For lunch, we enjoyed...</span>
+                        <select id="slot-3" class="bg-slate-800 text-emerald-300 font-semibold border border-slate-600 rounded p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- Choose collected clue --</option>
+                        </select>
+                    </div>
+
+                    <!-- Paragraph Slot 4 -->
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span><strong>4. Highlight Moment:</strong> The most memorable moment was...</span>
+                        <select id="slot-4" class="bg-slate-800 text-emerald-300 font-semibold border border-slate-600 rounded p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- Choose collected clue --</option>
+                        </select>
+                    </div>
+
+                    <!-- Paragraph Slot 5 -->
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <span><strong>5. Reflection / Moral Lesson:</strong> Overall, I felt very grateful because...</span>
+                        <select id="slot-5" class="bg-slate-800 text-emerald-300 font-semibold border border-slate-600 rounded p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- Choose collected clue --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="submitEssay()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-game py-3 rounded-xl shadow-lg transition-all text-sm md:text-base flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i> Submit Final Essay!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Victory & Certificate Modal -->
+    <div id="modal-victory" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-amber-50 border-4 border-amber-500 rounded-2xl p-6 md:p-8 max-w-2xl w-full text-slate-900 shadow-2xl my-8 relative">
+            <div class="text-center border-b-2 border-amber-300 pb-4 mb-4">
+                <i class="fa-solid fa-award text-5xl text-amber-500 mb-2"></i>
+                <h2 class="font-game text-3xl text-amber-700">CERTIFICATE OF EXCELLENCE</h2>
+                <p class="text-xs uppercase tracking-widest font-bold text-slate-600">Form 1 English Essay Detective Challenge</p>
+            </div>
+
+            <div class="text-center my-4 space-y-2">
+                <p class="text-sm text-slate-600">This certificate is proudly awarded to:</p>
+                <div class="font-game text-2xl text-indigo-900" id="cert-student-name">Master Detective</div>
+                <p class="text-xs text-slate-600">for successfully collecting all missing notes and crafting a brilliant essay!</p>
+            </div>
+
+            <!-- Completed Essay Output Preview -->
+            <div class="bg-amber-100/70 p-4 rounded-xl border border-amber-300 text-xs md:text-sm font-serif leading-relaxed text-slate-800 my-4 shadow-inner">
+                <h4 class="font-bold font-sans text-center text-slate-900 mb-2">"My Unforgettable School Holiday"</h4>
+                <p id="cert-essay-body"></p>
+            </div>
+
+            <!-- Badges Earned -->
+            <div class="flex justify-center gap-4 my-4">
+                <div class="bg-amber-200 border border-amber-400 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-900 flex items-center gap-1">
+                    <i class="fa-solid fa-shield-halved text-amber-600"></i> Master Detective
+                </div>
+                <div class="bg-indigo-200 border border-indigo-400 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-900 flex items-center gap-1">
+                    <i class="fa-solid fa-pen-nib text-indigo-600"></i> Star Essayist
+                </div>
+            </div>
+
+            <!-- Final Stats & Leaderboard Submission -->
+            <div class="flex items-center justify-between bg-amber-200/50 p-3 rounded-lg text-xs font-bold text-slate-700 mb-6">
+                <span>Total Score: <strong id="cert-score" class="text-indigo-900 text-sm">0</strong></span>
+                <span>Time Taken: <strong id="cert-time" class="text-indigo-900 text-sm">00:00</strong></span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="window.print()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-game py-2.5 rounded-xl text-xs md:text-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-print"></i> Print / Save Certificate
+                </button>
+                <button onclick="location.reload()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-game py-2.5 rounded-xl text-xs md:text-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Leaderboard Modal -->
+    <div id="modal-leaderboard" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-amber-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <h3 class="font-game text-amber-400 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-500"></i> High Score Detectives
+                </h3>
+                <button onclick="closeModal('modal-leaderboard')" class="text-slate-400 hover:text-white p-1 text-lg">&times;</button>
+            </div>
+
+            <div class="space-y-2 mb-6 max-h-60 overflow-y-auto pr-1" id="leaderboard-list">
+                <!-- Dynamically Populated Leaderboards -->
+            </div>
+
+            <button onclick="closeModal('modal-leaderboard')" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-game py-2 rounded-xl text-xs">Close</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        /* --- AUDIO SYNTHESIZER (Web Audio API) --- */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+                if (this.muted) return;
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+            pickup() { this.playTone(587.33, 'triangle', 0.15, 0.15); setTimeout(() => this.playTone(880, 'triangle', 0.2, 0.15), 80); }
+            correct() { this.playTone(523.25, 'sine', 0.1); setTimeout(() => this.playTone(659.25, 'sine', 0.1), 100); setTimeout(() => this.playTone(783.99, 'sine', 0.25), 200); }
+            wrong() { this.playTone(200, 'sawtooth', 0.2, 0.15); setTimeout(() => this.playTone(150, 'sawtooth', 0.3, 0.15), 150); }
+            powerup() { this.playTone(400, 'sine', 0.08); setTimeout(() => this.playTone(600, 'sine', 0.08), 80); setTimeout(() => this.playTone(800, 'sine', 0.15), 160); }
+            victory() {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 'triangle', 0.3, 0.2), i * 150));
+            }
+        }
+        const sfx = new SoundFX();
+
+        /* --- GAME ENGINE & STATE --- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameState = {
+            currentZone: 'courtyard', // courtyard, canteen, library, science_lab, sports_field, principal_office
+            score: 0,
+            hintsCollected: [],
+            stage: 1, // 1: Courtyard/Canteen, 2: Library/Science, 3: Field/Principal
+            timeElapsed: 0,
+            paused: false,
+            player: {
+                x: 300,
+                y: 250,
+                radius: 14,
+                speed: 3.5,
+                color: '#3b82f6',
+                vx: 0,
+                vy: 0
+            },
+            buffs: {
+                speedTimer: 0,
+                visionTimer: 0
+            }
+        };
+
+        const keys = {};
+
+        /* --- MAP DEFINITIONS --- */
+        const ZONES = {
+            courtyard: {
+                name: "School Courtyard",
+                bg: "#15803d", // Green lawn
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 740, y: 250, w: 40, h: 100, target: 'canteen', targetX: 60, targetY: 250, label: "To Canteen" },
+                    { x: 350, y: 30, w: 100, h: 40, target: 'library', targetX: 400, targetY: 520, label: "To Library" }
+                ],
+                decorations: [
+                    { type: 'flagpole', x: 400, y: 250, r: 15 },
+                    { type: 'bench', x: 200, y: 150, w: 60, h: 25 },
+                    { type: 'bench', x: 600, y: 150, w: 60, h: 25 },
+                    { type: 'flowerbed', x: 150, y: 400, w: 100, h: 50 },
+                    { type: 'flowerbed', x: 550, y: 400, w: 100, h: 50 }
+                ],
+                npcs: [
+                    { id: 'cikgu_rosli', name: 'Cikgu Rosli', x: 440, y: 260, color: '#e11d48', hintId: 'hint_dest' }
+                ]
+            },
+            canteen: {
+                name: "School Canteen",
+                bg: "#78350f", // Wooden floor texture vibe
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 30, y: 250, w: 40, h: 100, target: 'courtyard', targetX: 700, targetY: 250, label: "To Courtyard" },
+                    { x: 350, y: 30, w: 100, h: 40, target: 'science_lab', targetX: 400, targetY: 520, label: "To Science Lab" }
+                ],
+                decorations: [
+                    { type: 'table', x: 150, y: 150, w: 120, h: 60 },
+                    { type: 'table', x: 500, y: 150, w: 120, h: 60 },
+                    { type: 'counter', x: 200, y: 450, w: 400, h: 40 }
+                ],
+                npcs: [
+                    { id: 'mak_cik_canteen', name: 'Mak Cik Canteen', x: 400, y: 410, color: '#f59e0b', hintId: 'hint_food' }
+                ]
+            },
+            library: {
+                name: "School Library",
+                bg: "#1e1b4b", // Quiet dark blue carpet
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 350, y: 530, w: 100, h: 40, target: 'courtyard', targetX: 400, targetY: 80, label: "To Courtyard" },
+                    { x: 740, y: 250, w: 40, h: 100, target: 'sports_field', targetX: 60, targetY: 250, label: "To Sports Field" }
+                ],
+                decorations: [
+                    { type: 'bookshelf', x: 100, y: 80, w: 150, h: 40 },
+                    { type: 'bookshelf', x: 320, y: 80, w: 150, h: 40 },
+                    { type: 'bookshelf', x: 540, y: 80, w: 150, h: 40 },
+                    { type: 'desk', x: 300, y: 300, w: 200, h: 80 }
+                ],
+                npcs: [
+                    { id: 'librarian_siti', name: 'Puan Siti (Librarian)', x: 400, y: 270, color: '#8b5cf6', hintId: 'hint_activity' }
+                ]
+            },
+            science_lab: {
+                name: "Science Laboratory",
+                bg: "#0f766e", // Lab tile teal
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 350, y: 530, w: 100, h: 40, target: 'canteen', targetX: 400, targetY: 80, label: "To Canteen" }
+                ],
+                decorations: [
+                    { type: 'labbench', x: 150, y: 180, w: 200, h: 50 },
+                    { type: 'labbench', x: 450, y: 180, w: 200, h: 50 }
+                ],
+                npcs: [
+                    { id: 'mr_lee', name: 'Mr. Lee (Science)', x: 250, y: 140, color: '#06b6d4', hintId: 'hint_moment' }
+                ]
+            },
+            sports_field: {
+                name: "Sports Field",
+                bg: "#166534", // Grass green
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 30, y: 250, w: 40, h: 100, target: 'library', targetX: 700, targetY: 250, label: "To Library" },
+                    { x: 350, y: 30, w: 100, h: 40, target: 'principal_office', targetX: 400, targetY: 520, label: "To Headmaster's Study" }
+                ],
+                decorations: [
+                    { type: 'goalpost', x: 50, y: 200, w: 20, h: 150 },
+                    { type: 'goalpost', x: 730, y: 200, w: 20, h: 150 }
+                ],
+                npcs: [
+                    { id: 'coach_raja', name: 'Coach Raja', x: 390, y: 280, color: '#ea580c', hintId: 'hint_lesson' }
+                ]
+            },
+            principal_office: {
+                name: "Headmaster's Writing Room",
+                bg: "#451a03", // Rich mahogany wood
+                boundaries: { minX: 30, minY: 30, maxX: 770, maxY: 570 },
+                exits: [
+                    { x: 350, y: 530, w: 100, h: 40, target: 'sports_field', targetX: 400, targetY: 80, label: "To Sports Field" }
+                ],
+                decorations: [
+                    { type: 'executive_desk', x: 300, y: 150, w: 200, h: 80 },
+                    { type: 'writing_desk', x: 350, y: 350, w: 100, h: 60 }
+                ],
+                npcs: [
+                    { id: 'headmaster', name: 'Headmaster Encik Fairuz', x: 400, y: 120, color: '#dc2626', isFinalDesk: true }
+                ]
+            }
+        };
+
+        /* --- POWER-UPS & ITEMS GENERATION --- */
+        let mapPowerups = [
+            { zone: 'courtyard', x: 150, y: 200, type: 'speed', collected: false },
+            { zone: 'canteen', x: 650, y: 300, type: 'snack', collected: false },
+            { zone: 'library', x: 200, y: 450, type: 'vision', collected: false },
+            { zone: 'sports_field', x: 500, y: 450, type: 'speed', collected: false }
+        ];
+
+        /* --- FORM 1 ENGLISH RIDDLES & CLUES DATA --- */
+        const ESSAY_HINTS = {
+            hint_dest: {
+                id: 'hint_dest',
+                category: "1. Destination",
+                text: "Desaru Beach in Johor",
+                speaker: "Cikgu Rosli",
+                riddle: {
+                    q: "Choose the correct past simple verb: 'Last week, my family and I ____ to the seaside.'",
+                    options: ["go", "went", "gone", "going"],
+                    correct: 1
+                }
+            },
+            hint_food: {
+                id: 'hint_food',
+                category: "3. Food",
+                text: "grilled fresh seafood and sweet coconut water",
+                speaker: "Mak Cik Canteen",
+                riddle: {
+                    q: "Which word is an ADJECTIVE describing food in this sentence: 'We ate delicious grilled fish'?",
+                    options: ["ate", "delicious", "fish", "We"],
+                    correct: 1
+                }
+            },
+            hint_activity: {
+                id: 'hint_activity',
+                category: "2. Activity",
+                text: "building giant sandcastles and swimming in the calm sea",
+                speaker: "Puan Siti",
+                riddle: {
+                    q: "Find the correct conjunction: 'I wanted to swim, ____ the water was too cold at first.'",
+                    options: ["because", "or", "but", "so"],
+                    correct: 2
+                }
+            },
+            hint_moment: {
+                id: 'hint_moment',
+                category: "4. Highlight",
+                text: "watching the breathtaking orange sunset with my family",
+                speaker: "Mr. Lee",
+                riddle: {
+                    q: "Select the correctly spelled word suitable for an essay:",
+                    options: ["Beautifull", "Beautiful", "Beautifyl", "Beautifulll"],
+                    correct: 1
+                }
+            },
+            hint_lesson: {
+                id: 'hint_lesson',
+                category: "5. Reflection",
+                text: "spending quality family time refreshed my mind for the new school term",
+                speaker: "Coach Raja",
+                riddle: {
+                    q: "Complete the proverb: 'All work and no play makes Jack a ____ boy.'",
+                    options: ["dull", "happy", "smart", "fast"],
+                    correct: 0
+                }
+            }
+        };
+
+        /* --- INITIALIZATION & EVENT LISTENERS --- */
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            setupInput();
+            setupHUDButtons();
+            populateLeaderboardMock();
+            gameLoop();
+        });
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function setupInput() {
+            window.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                if (e.key === ' ' || e.key === 'e' || e.key === 'E') {
+                    checkInteractions();
+                }
+            });
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            // Touch D-Pad bindings
+            bindTouch('btn-up', 'w');
+            bindTouch('btn-down', 's');
+            bindTouch('btn-left', 'a');
+            bindTouch('btn-right', 'd');
+
+            // Canvas Click to move / interact
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = (e.clientX - rect.left) * (800 / canvas.width);
+                const clickY = (e.clientY - rect.top) * (600 / canvas.height);
+                
+                // Move player towards click point gradually
+                gameState.player.x = Math.max(50, Math.min(750, clickX));
+                gameState.player.y = Math.max(50, Math.min(550, clickY));
+                checkInteractions();
+            });
+        }
+
+        function bindTouch(btnId, keyMapped) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyMapped] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyMapped] = false; });
+        }
+
+        function setupHUDButtons() {
+            document.getElementById('btn-audio').addEventListener('click', () => {
+                sfx.muted = !sfx.muted;
+                document.getElementById('btn-audio').innerHTML = sfx.muted ? 
+                    '<i class="fa-solid fa-volume-xmark text-red-400"></i>' : 
+                    '<i class="fa-solid fa-volume-high"></i>';
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                gameState.paused = !gameState.paused;
+                document.getElementById('btn-pause').innerHTML = gameState.paused ? 
+                    '<i class="fa-solid fa-play text-emerald-400"></i>' : 
+                    '<i class="fa-solid fa-pause"></i>';
+            });
+
+            document.getElementById('btn-leaderboard').addEventListener('click', () => {
+                openModal('modal-leaderboard');
+            });
+        }
+
+        /* --- MAIN GAME LOOP --- */
+        let lastTime = performance.now();
+        function gameLoop(now = performance.now()) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            if (!gameState.paused) {
+                update(dt);
+            }
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        /* --- UPDATE LOGIC --- */
+        function update(dt) {
+            if (gameState.paused) return;
+
+            // Timer
+            gameState.timeElapsed += dt;
+
+            // Handle Power-Up Timers
+            if (gameState.buffs.speedTimer > 0) {
+                gameState.buffs.speedTimer -= dt;
+                document.getElementById('speed-timer').innerText = `${Math.ceil(gameState.buffs.speedTimer)}s`;
+                if (gameState.buffs.speedTimer <= 0) document.getElementById('buff-speed').classList.add('hidden');
+            }
+            if (gameState.buffs.visionTimer > 0) {
+                gameState.buffs.visionTimer -= dt;
+                document.getElementById('vision-timer').innerText = `${Math.ceil(gameState.buffs.visionTimer)}s`;
+                if (gameState.buffs.visionTimer <= 0) document.getElementById('buff-vision').classList.add('hidden');
+            }
+
+            // Player Movement
+            let moveSpeed = gameState.player.speed * (gameState.buffs.speedTimer > 0 ? 1.7 : 1.0);
+            let dx = 0;
+            let dy = 0;
+
+            if (keys['w'] || keys['arrowup']) dy -= 1;
+            if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1;
+            if (keys['d'] || keys['arrowright']) dx += 1;
+
+            // Normalize diagonal movement
+            if (dx !== 0 && dy !== 0) {
+                dx *= 0.7071;
+                dy *= 0.7071;
+            }
+
+            const activeZone = ZONES[gameState.currentZone];
+
+            let newX = gameState.player.x + dx * moveSpeed;
+            let newY = gameState.player.y + dy * moveSpeed;
+
+            // Map Bounds Collision
+            if (newX >= activeZone.boundaries.minX && newX <= activeZone.boundaries.maxX) {
+                gameState.player.x = newX;
+            }
+            if (newY >= activeZone.boundaries.minY && newY <= activeZone.boundaries.maxY) {
+                gameState.player.y = newY;
+            }
+
+            // Check Map Exits / Portals
+            activeZone.exits.forEach(exit => {
+                if (gameState.player.x >= exit.x && gameState.player.x <= exit.x + exit.w &&
+                    gameState.player.y >= exit.y && gameState.player.y <= exit.y + exit.h) {
+                    // Switch Zone
+                    gameState.currentZone = exit.target;
+                    gameState.player.x = exit.targetX;
+                    gameState.player.y = exit.targetY;
+                    document.getElementById('current-zone-name').innerText = ZONES[exit.target].name;
+                    sfx.pickup();
+                    updateMissionText();
+                }
+            });
+
+            // Check Power-ups pickups
+            mapPowerups.forEach(p => {
+                if (!p.collected && p.zone === gameState.currentZone) {
+                    let dist = Math.hypot(gameState.player.x - p.x, gameState.player.y - p.y);
+                    if (dist < 25) {
+                        p.collected = true;
+                        sfx.powerup();
+                        if (p.type === 'speed') {
+                            gameState.buffs.speedTimer = 10;
+                            document.getElementById('buff-speed').classList.remove('hidden');
+                        } else if (p.type === 'vision') {
+                            gameState.buffs.visionTimer = 15;
+                            document.getElementById('buff-vision').classList.remove('hidden');
+                        } else if (p.type === 'snack') {
+                            gameState.score += 150;
+                            updateHUD();
+                        }
+                    }
+                }
+            });
+
+            // Check Interactive NPC / Object Proximity for HUD Prompt
+            let nearInteractive = false;
+            activeZone.npcs.forEach(npc => {
+                let dist = Math.hypot(gameState.player.x - npc.x, gameState.player.y - npc.y);
+                if (dist < 45) {
+                    nearInteractive = true;
+                }
+            });
+
+            const prompt = document.getElementById('interaction-prompt');
+            if (nearInteractive) prompt.classList.remove('hidden');
+            else prompt.classList.add('hidden');
+        }
+
+        /* --- INTERACTION HANDLER --- */
+        function checkInteractions() {
+            const activeZone = ZONES[gameState.currentZone];
+            activeZone.npcs.forEach(npc => {
+                let dist = Math.hypot(gameState.player.x - npc.x, gameState.player.y - npc.y);
+                if (dist < 50) {
+                    if (npc.isFinalDesk) {
+                        // Check if all 5 hints collected
+                        if (gameState.hintsCollected.length >= 5) {
+                            openEssayBuilder();
+                        } else {
+                            triggerNpcDialog(npc.name, `Welcome detective! You need all 5 Essay Hints before assembling your essay here. You currently have ${gameState.hintsCollected.length}/5.`);
+                        }
+                    } else if (npc.hintId) {
+                        const hintData = ESSAY_HINTS[npc.hintId];
+                        if (gameState.hintsCollected.includes(npc.hintId)) {
+                            triggerNpcDialog(npc.name, `You already solved my riddle! The clue was: "${hintData.text}". Keep searching!`);
+                        } else {
+                            openRiddleModal(npc.name, hintData);
+                        }
+                    }
+                }
+            });
+        }
+
+        function triggerNpcDialog(speaker, text) {
+            document.getElementById('riddle-title').innerText = "School Interaction";
+            document.getElementById('riddle-speaker').innerText = speaker;
+            document.getElementById('riddle-question').innerText = text;
+            document.getElementById('riddle-options').innerHTML = `
+                <button onclick="closeModal('modal-riddle')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-game py-2.5 rounded-xl">Understood!</button>
+            `;
+            document.getElementById('riddle-feedback').classList.add('hidden');
+            openModal('modal-riddle');
+        }
+
+        /* --- RIDDLE SYSTEM --- */
+        function openRiddleModal(speaker, hintData) {
+            document.getElementById('riddle-title').innerText = `Riddle Challenge (${hintData.category})`;
+            document.getElementById('riddle-speaker').innerText = speaker;
+            document.getElementById('riddle-question').innerText = hintData.riddle.q;
+
+            const optsContainer = document.getElementById('riddle-options');
+            optsContainer.innerHTML = '';
+
+            hintData.riddle.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-slate-700 hover:bg-indigo-600 text-slate-100 font-semibold p-3 rounded-xl border border-slate-600 transition-colors text-left text-xs md:text-sm flex items-center gap-2";
+                btn.innerHTML = `<span class="bg-slate-800 text-amber-400 px-2 py-0.5 rounded text-xs font-bold">${String.fromCharCode(65 + idx)}</span> ${opt}`;
+                btn.onclick = () => answerRiddle(idx, hintData.riddle.correct, hintData);
+                optsContainer.appendChild(btn);
+            });
+
+            document.getElementById('riddle-feedback').classList.add('hidden');
+            openModal('modal-riddle');
+        }
+
+        function answerRiddle(selected, correct, hintData) {
+            const feedback = document.getElementById('riddle-feedback');
+            feedback.classList.remove('hidden');
+
+            if (selected === correct) {
+                sfx.correct();
+                feedback.className = "p-3 rounded-lg text-xs font-semibold text-center mb-2 bg-emerald-500/20 border border-emerald-500 text-emerald-300";
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> Correct! You gained Essay Hint: <strong>"${hintData.text}"</strong> (+200 pts)`;
+
+                if (!gameState.hintsCollected.includes(hintData.id)) {
+                    gameState.hintsCollected.push(hintData.id);
+                    gameState.score += 200;
+                    updateHUD();
+                    updateMissionText();
+                }
+
+                setTimeout(() => {
+                    closeModal('modal-riddle');
+                }, 1800);
+            } else {
+                sfx.wrong();
+                feedback.className = "p-3 rounded-lg text-xs font-semibold text-center mb-2 bg-red-500/20 border border-red-500 text-red-300";
+                feedback.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Oops! That's not correct. Try again!`;
+            }
+        }
+
+        /* --- HUD & MISSION LOG UPDATES --- */
+        function updateHUD() {
+            document.getElementById('score-display').innerText = gameState.score;
+            document.getElementById('hints-count').innerText = `${gameState.hintsCollected.length}/5`;
+            document.getElementById('hints-bar').style.width = `${(gameState.hintsCollected.length / 5) * 100}%`;
+
+            // Render Clue Tags in Sidebar
+            const tagsBox = document.getElementById('clue-tags-container');
+            if (gameState.hintsCollected.length === 0) {
+                tagsBox.innerHTML = `<span class="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded border border-slate-700 italic">No clues collected yet</span>`;
+            } else {
+                tagsBox.innerHTML = gameState.hintsCollected.map(id => {
+                    const h = ESSAY_HINTS[id];
+                    return `<span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700/50 flex items-center gap-1 font-semibold"><i class="fa-solid fa-check text-[8px]"></i> ${h.category}</span>`;
+                }).join('');
+            }
+
+            // Update Stage level
+            if (gameState.hintsCollected.length >= 4) {
+                gameState.stage = 3;
+                document.getElementById('level-indicator').innerText = "Stage 3: Headmaster's Study";
+            } else if (gameState.hintsCollected.length >= 2) {
+                gameState.stage = 2;
+                document.getElementById('level-indicator').innerText = "Stage 2: Library & Science";
+            }
+        }
+
+        function updateMissionText() {
+            const mText = document.getElementById('mission-text');
+            const hints = gameState.hintsCollected.length;
+
+            if (hints === 5) {
+                mText.innerHTML = `<span class="text-amber-400 font-bold">ALL CLUES FOUND!</span> Head to the Headmaster's Writing Room and use the final desk to write your essay!`;
+            } else if (hints >= 3) {
+                mText.innerText = "Explore the Sports Field and Science Lab to collect remaining clues from teachers.";
+            } else if (hints >= 1) {
+                mText.innerText = "Visit the School Canteen and Library to find more clue notes!";
+            } else {
+                mText.innerText = "Talk to Cikgu Rosli near the Courtyard flag pole to get your first essay riddle.";
+            }
+        }
+
+        /* --- ESSAY BUILDER & CERTIFICATE --- */
+        function openEssayBuilder() {
+            // Populate select dropdowns with collected hints
+            const slots = ['slot-1', 'slot-2', 'slot-3', 'slot-4', 'slot-5'];
+            slots.forEach((slotId) => {
+                const select = document.getElementById(slotId);
+                select.innerHTML = '<option value="">-- Select clue --</option>';
+                gameState.hintsCollected.forEach(hintId => {
+                    const h = ESSAY_HINTS[hintId];
+                    const opt = document.createElement('option');
+                    opt.value = hintId;
+                    opt.innerText = `${h.category}: ${h.text}`;
+                    select.appendChild(opt);
+                });
+            });
+
+            openModal('modal-essay');
+        }
+
+        function submitEssay() {
+            const s1 = document.getElementById('slot-1').value;
+            const s2 = document.getElementById('slot-2').value;
+            const s3 = document.getElementById('slot-3').value;
+            const s4 = document.getElementById('slot-4').value;
+            const s5 = document.getElementById('slot-5').value;
+
+            if (!s1 || !s2 || !s3 || !s4 || !s5) {
+                alert("Please select a clue for every sentence slot to finish your essay!");
+                return;
+            }
+
+            closeModal('modal-essay');
+            sfx.victory();
+
+            // Construct Essay Paragraph
+            const essayText = `During the recent school holidays, my family and I went to <strong>${ESSAY_HINTS[s1].text}</strong>. While we were there, my favorite activity was <strong>${ESSAY_HINTS[s2].text}</strong>. For lunch, we enjoyed <strong>${ESSAY_HINTS[s3].text}</strong>. The most memorable moment was <strong>${ESSAY_HINTS[s4].text}</strong>. Overall, I felt very grateful because <strong>${ESSAY_HINTS[s5].text}</strong>.`;
+
+            document.getElementById('cert-essay-body').innerHTML = essayText;
+            document.getElementById('cert-score').innerText = gameState.score + 500; // Bonus finish points
+            
+            const mins = Math.floor(gameState.timeElapsed / 60);
+            const secs = Math.floor(gameState.timeElapsed % 60);
+            document.getElementById('cert-time').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // Save score to localstorage
+            saveScore(gameState.score + 500);
+
+            openModal('modal-victory');
+        }
+
+        /* --- LEADERBOARD LOCALSTORAGE SIMULATION --- */
+        function populateLeaderboardMock() {
+            let scores = JSON.parse(localStorage.getItem('school_mystery_scores') || '[]');
+            if (scores.length === 0) {
+                scores = [
+                    { name: "Ahmad Detective (Form 1A)", score: 1450 },
+                    { name: "Siti Smart (Form 1B)", score: 1300 },
+                    { name: "Lee Kah Wai (Form 1M)", score: 1100 }
+                ];
+                localStorage.setItem('school_mystery_scores', JSON.stringify(scores));
+            }
+            renderLeaderboardUI(scores);
+        }
+
+        function saveScore(finalScore) {
+            let scores = JSON.parse(localStorage.getItem('school_mystery_scores') || '[]');
+            scores.push({ name: "Player Detective (Form 1)", score: finalScore });
+            scores.sort((a, b) => b.score - a.score);
+            scores = scores.slice(0, 5); // Keep top 5
+            localStorage.setItem('school_mystery_scores', JSON.stringify(scores));
+            renderLeaderboardUI(scores);
+        }
+
+        function renderLeaderboardUI(scores) {
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = scores.map((s, idx) => `
+                <div class="flex items-center justify-between bg-slate-700/60 p-2.5 rounded-lg border border-slate-600 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-600 text-slate-300'} flex items-center justify-center font-bold text-[10px]">${idx + 1}</span>
+                        <span class="font-semibold text-slate-200">${s.name}</span>
+                    </div>
+                    <span class="font-game text-amber-400">${s.score} pts</span>
+                </div>
+            `).join('');
+        }
+
+        /* --- MODAL HELPERS --- */
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        /* --- CANVAS RENDERING (2D Top-Down Graphic Visuals) --- */
+        function render() {
+            // Scale Canvas for crisp rendering
+            const viewW = 800;
+            const viewH = 600;
+            ctx.save();
+            ctx.scale(canvas.width / viewW, canvas.height / viewH);
+
+            const activeZone = ZONES[gameState.currentZone];
+
+            // 1. Draw Background
+            ctx.fillStyle = activeZone.bg;
+            ctx.fillRect(0, 0, viewW, viewH);
+
+            // Draw floor grid pattern for school feel
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+            ctx.lineWidth = 1;
+            for (let x = 0; x < viewW; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, viewH); ctx.stroke();
+            }
+            for (let y = 0; y < viewH; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(viewW, y); ctx.stroke();
+            }
+
+            // 2. Draw Walls / Boundaries
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(0, 0, viewW, 30); // Top wall
+            ctx.fillRect(0, viewH - 30, viewW, 30); // Bottom wall
+            ctx.fillRect(0, 0, 30, viewH); // Left wall
+            ctx.fillRect(viewW - 30, 0, 30, viewH); // Right wall
+
+            // 3. Draw Exits / Doors
+            activeZone.exits.forEach(exit => {
+                ctx.fillStyle = "#f59e0b"; // Door gold indicator
+                ctx.fillRect(exit.x, exit.y, exit.w, exit.h);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 10px Quicksand";
+                ctx.textAlign = "center";
+                ctx.fillText(exit.label, exit.x + exit.w/2, exit.y - 5);
+            });
+
+            // 4. Draw Scenery / Furniture Decorations
+            activeZone.decorations.forEach(dec => {
+                if (dec.type === 'flagpole') {
+                    ctx.fillStyle = "#cbd5e1";
+                    ctx.beginPath(); ctx.arc(dec.x, dec.y, dec.r, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = "#dc2626"; // Flag
+                    ctx.fillRect(dec.x, dec.y - 25, 20, 12);
+                } else if (dec.type === 'bench' || dec.type === 'table' || dec.type === 'desk') {
+                    ctx.fillStyle = "#b45309";
+                    ctx.fillRect(dec.x, dec.y, dec.w, dec.h);
+                    ctx.strokeStyle = "#78350f";
+                    ctx.strokeRect(dec.x, dec.y, dec.w, dec.h);
+                } else if (dec.type === 'bookshelf') {
+                    ctx.fillStyle = "#451a03";
+                    ctx.fillRect(dec.x, dec.y, dec.w, dec.h);
+                    ctx.fillStyle = "#3b82f6"; ctx.fillRect(dec.x + 10, dec.y + 5, 20, 30);
+                    ctx.fillStyle = "#ef4444"; ctx.fillRect(dec.x + 35, dec.y + 5, 20, 30);
+                    ctx.fillStyle = "#10b981"; ctx.fillRect(dec.x + 60, dec.y + 5, 20, 30);
+                } else {
+                    ctx.fillStyle = "#64748b";
+                    ctx.fillRect(dec.x, dec.y, dec.w, dec.h);
+                }
+            });
+
+            // 5. Draw Power-Ups on Map
+            mapPowerups.forEach(p => {
+                if (!p.collected && p.zone === gameState.currentZone) {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    if (p.type === 'speed') {
+                        ctx.fillStyle = "#f59e0b";
+                        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 10px FontAwesome";
+                        ctx.fillText("⚡", -4, 4);
+                    } else if (p.type === 'vision') {
+                        ctx.fillStyle = "#06b6d4";
+                        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 10px FontAwesome";
+                        ctx.fillText("🔍", -4, 4);
+                    } else {
+                        ctx.fillStyle = "#10b981";
+                        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 10px FontAwesome";
+                        ctx.fillText("🍿", -4, 4);
+                    }
+                    ctx.restore();
+                }
+            });
+
+            // 6. Draw Interactive NPCs
+            activeZone.npcs.forEach(npc => {
+                // NPC Body
+                ctx.fillStyle = npc.color;
+                ctx.beginPath();
+                ctx.arc(npc.x, npc.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Glowing hint pulse around NPC if not answered yet
+                if (npc.hintId && !gameState.hintsCollected.includes(npc.hintId)) {
+                    ctx.strokeStyle = "#facc15";
+                    ctx.lineWidth = 2 + Math.sin(Date.now() / 200) * 1.5;
+                    ctx.beginPath();
+                    ctx.arc(npc.x, npc.y, 22, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Name tag above NPC
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 11px Quicksand";
+                ctx.textAlign = "center";
+                ctx.fillText(npc.name, npc.x, npc.y - 22);
+            });
+
+            // 7. Draw Player Character Avatar
+            const p = gameState.player;
+            // Player Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.25)";
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y + 12, 12, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Player Body
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Player Detective Cap
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(p.x - 12, p.y - 18, 24, 6);
+            ctx.fillRect(p.x - 8, p.y - 24, 16, 7);
+
+            // Speed Aura overlay
+            if (gameState.buffs.speedTimer > 0) {
+                ctx.strokeStyle = "#fbbf24";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius + 4, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
